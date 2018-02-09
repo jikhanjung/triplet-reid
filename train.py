@@ -135,6 +135,12 @@ parser.add_argument(
          'thus likely changes the network input size!')
 
 parser.add_argument(
+    "--max_rotation", default=0., type=common.positive_float,
+    help='Maximum random image rotation to augment dataset with in degrees.'
+         'default: 0'
+)
+
+parser.add_argument(
     '--detailed_logs', action='store_true', default=False,
     help='Store very detailed logs of the training in addition to TensorBoard'
          ' summaries. These are mem-mapped numpy files containing the'
@@ -265,6 +271,11 @@ def main():
     if args.crop_augment:
         dataset = dataset.map(
             lambda im, fid, pid: (tf.random_crop(im, net_input_size + (3,)), fid, pid))
+    if args.max_rotation > 0.:
+        a = args.max_rotation * 3.141 / 180  # Degrees -> radians
+        dataset = dataset.map(
+            lambda im, fid, pid: (tf.contrib.image.rotate(im,
+                                            tf.random_uniform([], -a, a),), fid, pid))
 
     # Group it back into PK batches.
     batch_size = args.batch_p * args.batch_k
