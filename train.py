@@ -272,10 +272,10 @@ def main():
         dataset = dataset.map(
             lambda im, fid, pid: (tf.random_crop(im, net_input_size + (3,)), fid, pid))
     if args.max_rotation > 0.:
-        a = args.max_rotation * 3.141 / 180  # Degrees -> radians
+        max_angle = args.max_rotation * 3.141 / 180  # Degrees -> radians
         dataset = dataset.map(
-            lambda im, fid, pid: (tf.contrib.image.rotate(im,
-                                            tf.random_uniform([], -a, a),), fid, pid))
+            lambda im, fid, pid: (tf.contrib.image.rotate(
+                im, tf.random_uniform([], -max_angle, max_angle),), fid, pid))
 
     # Group it back into PK batches.
     batch_size = args.batch_p * args.batch_k
@@ -413,7 +413,7 @@ def main():
 
                 # Do a huge print out of the current progress.
                 seconds_todo = (args.train_iterations - step) * elapsed_time
-                log.info('iter:{:6d}, loss min|avg|max: {:.3f}|{:.3f}|{:6.3f}, '
+                log.info('iter:{:6d}, loss min|avg|max: {:.1e}|{:.1e}|{:6.1e}, '
                          'batch-p@{}: {:.2%}, ETA: {} ({:.2f}s/it)'.format(
                              step,
                              float(np.min(b_loss)),
