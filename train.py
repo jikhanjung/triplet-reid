@@ -141,6 +141,13 @@ parser.add_argument(
 )
 
 parser.add_argument(
+    "--saturation_range", default=[1, 1], type=common.positive_float,
+    nargs=2, help="range (min, max) ofvalues to multiply saturation by during training"
+)
+
+parser.add_argument("--hue_range", default=0., type=common.positive_float)
+
+parser.add_argument(
     '--detailed_logs', action='store_true', default=False,
     help='Store very detailed logs of the training in addition to TensorBoard'
          ' summaries. These are mem-mapped numpy files containing the'
@@ -166,6 +173,9 @@ def sample_k_fids_for_pid(pid, all_fids, all_pids, batch_k):
 
     return selected_fids, tf.fill([batch_k], pid)
 
+
+def random_erasing(img, erase_prob, aspect_ratio_range, ):
+    pass
 
 def main():
     args = parser.parse_args()
@@ -265,17 +275,29 @@ def main():
         num_parallel_calls=args.loading_threads)
 
     # Augment the data if specified by the arguments.
-    if args.flip_augment:
-        dataset = dataset.map(
-            lambda im, fid, pid: (tf.image.random_flip_left_right(im), fid, pid))
-    if args.crop_augment:
-        dataset = dataset.map(
-            lambda im, fid, pid: (tf.random_crop(im, net_input_size + (3,)), fid, pid))
-    if args.max_rotation > 0.:
-        max_angle = args.max_rotation * 3.141 / 180  # Degrees -> radians
-        dataset = dataset.map(
-            lambda im, fid, pid: (tf.contrib.image.rotate(
-                im, tf.random_uniform([], -max_angle, max_angle),), fid, pid))
+    with tf.name_scope("Augmentation"):
+        if args.flip_augment:
+            dataset = dataset.map(
+                lambda im, fid, pid: (tf.image.random_flip_left_right(im), fid, pid))
+
+        if args.max_rotation > 0.:
+            max_angle = args.max_rotation * 3.141 / 180  # Degrees -> radians
+            dataset = dataset.map(
+                lambda im, fid, pid: (tf.contrib.image.rotate(
+                    im, tf.random_uniform([], -max_angle, max_angle),), fid, pid))
+
+        if args.crop_augment:
+            dataset = dataset.map(
+                lambda im, fid, pid: (tf.random_crop(im, net_input_size + (3,)), fid, pid))
+
+        if args.saturation_range != [1, 1]:
+            lower, upper = args.saturation_range
+            dataset = dataset.map(
+                lambda im, fid, pid: (tf.image.random_saturation(im, lower, upper), fid, pid))
+
+        if args.hue_range > 0:
+            dataset = dataset.map(
+                lambda im, fid, pid: (tf.image.random_hue(im, args.hue_range), fid, pid))
 
     # Group it back into PK batches.
     batch_size = args.batch_p * args.batch_k
